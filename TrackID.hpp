@@ -15,9 +15,10 @@
 class Track {
     private:
         int ID;
-        cv::Rect2d bbox;
-        cv::Rect2d searchArea;
-        cv::Rect2d imageBounds;
+        cv::Rect bbox;
+        cv::Rect searchArea;
+        cv::Rect displayBbox;
+        cv::Rect imageBounds;
         double w; 
         double h;
         double bw;
@@ -26,14 +27,15 @@ class Track {
     public:
         Track () {
             ID = 0;
-            bbox = cv::Rect2d(0, 0, 0, 0);
-            searchArea = cv::Rect2d(0, 0, 0, 0);
+            bbox = cv::Rect(0, 0, 0, 0);
+            searchArea = cv::Rect(0, 0, 0, 0);
         };
         void initBBox(cv::Mat frame);
 
-        cv::Rect2d getBBox();
-        cv::Rect2d getSearchArea(); 
-        void updateBBox(int dx, int dy, cv::Rect2d bounds);
+        cv::Rect getBBox();
+        cv::Rect getDisplayBBox();
+        cv::Rect getSearchArea(); 
+        void updateBBox(int dx, int dy, cv::Rect bounds);
        
         cv::Mat cropForSearch(cv::Mat frame);
 

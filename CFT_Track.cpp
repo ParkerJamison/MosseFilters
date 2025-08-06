@@ -171,6 +171,10 @@ void updateFilter(Mat &G, Mat &Ai, Mat &Bi, Mat &fi, double lr) {
 
     Mat tmp1, tmp2;
 
+    if (fi.size() != G.size()) {
+        cout << "RESIZED" << endl;
+        resize(fi, fi, G.size());
+    }
     mulSpectrums(G, fi, tmp1, 0, true);
     mulSpectrums(fi, fi, tmp2, 0, true);
     Ai = ((1-lr) * Ai) + ((lr) * tmp1);
@@ -195,7 +199,7 @@ void CFT::startTracking() {
     
     cvtColor(currentFrame, grayFrame, COLOR_BGR2GRAY);
     grayFrame.convertTo(grayFrame, CV_64F);
-    Rect2d imageBounds(0, 0, grayFrame.cols, grayFrame.rows);
+    Rect imageBounds(0, 0, grayFrame.cols, grayFrame.rows);
 
     Track test;
 
@@ -214,6 +218,7 @@ void CFT::startTracking() {
         cout << "RESIZED" << dftSize << "::::" << fi.size() << endl;
         resize(fi, fi, dftSize);
     }
+
     Mat Ai(dftSize, CV_64F);
     Mat Bi(dftSize, CV_64F);
     trainFilter(fi, G, Ai, Bi, this->numTrain, this->lr);
@@ -242,6 +247,9 @@ void CFT::startTracking() {
         divSpectrums(Ai, Bi, Hi, 0, false);
 
         fi = test.cropForSearch(grayFrame);
+
+        //imshow("test", fi);
+        //waitKey(0);
         //cout << fi.rows << "::" << fi.cols << response.rows << "::" << response.cols <<  endl;
 
         if (fi.size() != dftSize) {
@@ -262,7 +270,7 @@ void CFT::startTracking() {
         Point maxLoc;
         minMaxLoc(gi, NULL, &maxVal, NULL, &maxLoc);
 
-        Rect2d peakWindow = Rect2d(maxLoc.x - 20, maxLoc.y - 20, 41, 41);
+        Rect peakWindow = Rect(maxLoc.x - 20, maxLoc.y - 20, 41, 41);
         peakWindow &= imageBounds;
         mask(peakWindow) = 0;
         Scalar m, sd;
@@ -276,11 +284,6 @@ void CFT::startTracking() {
 
         test.updateBBox(dx, dy, imageBounds);
 
-        if (fi.size() != G.size()) {
-            cout << "RESIZED" << endl;
-            resize(fi, fi, dftSize);
-
-        }
         if (!psrFlag) {
             updateFilter(G, Ai, Bi, fi, this->lr);
             if (psr > 20) psrFlag = true;
@@ -294,7 +297,7 @@ void CFT::startTracking() {
             }
         }
 
-        rectangle(currentFrame, test.getBBox(), Scalar(255, 0, 0), 2);
+        rectangle(currentFrame, test.getDisplayBBox(), Scalar(255, 0, 0), 2);
         imshow("Video Player2", currentFrame);
         //waitKey(0);
 

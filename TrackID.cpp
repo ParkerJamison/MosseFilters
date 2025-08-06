@@ -8,9 +8,10 @@ void Track::initBBox(cv::Mat frame) {
     bool fromCenter = false;
     int rows = frame.rows;
     int cols = frame.cols;
-    this->imageBounds = Rect2d(0, 0, cols, rows);
+    this->imageBounds = Rect(0, 0, cols, rows);
 
     this->bbox = selectROI(frame);
+    this->displayBbox = this->bbox;
 
     int optimalRows = getOptimalDFTSize(this->bbox.height);
     int optimalCols = getOptimalDFTSize(this->bbox.width);
@@ -27,31 +28,48 @@ void Track::initBBox(cv::Mat frame) {
     this->w = optimalCols;
     this->h = optimalRows;
 
-    this->searchArea &= this->imageBounds;
+    //this->searchArea &= this->imageBounds;
 }
 
-Rect2d Track::getBBox() {return this->bbox;}
+Rect Track::getBBox() {return this->bbox;}
 
-Rect2d Track::getSearchArea() {return this->searchArea;}
+Rect Track::getDisplayBBox() {return this->displayBbox;}
 
-void Track::updateBBox(int dx, int dy, cv::Rect2d bounds) {
+Rect Track::getSearchArea() {return this->searchArea;}
+
+void Track::updateBBox(int dx, int dy, cv::Rect bounds) {
     
     this->bbox.x += dx;
     this->bbox.y += dy;
-    this->bbox.height = this->bh;
-    this->bbox.width = this->bw;
-    this->bbox &= bounds;
-
-
+    
     this->searchArea.x += dx;
     this->searchArea.y += dy;
-    this->searchArea.width = this->w;
-    this->searchArea.height = this->h;
-    this->searchArea &= bounds;
+
+    this->displayBbox = this->bbox & this->imageBounds;
 }
 
-Mat Track::cropForSearch(Mat frame) {return frame(this->searchArea);}
+Mat Track::cropForSearch(Mat frame) {
 
-Mat Track::cropForROI(Mat frame) {return frame(this->bbox);}
+    Rect tmp = this->searchArea;
+    tmp &= this->imageBounds;
+    Mat cropped = frame(tmp);
+
+
+    int left = (0 < -this->searchArea.x) ? -this->searchArea.x : 0;
+    int top = (0 < -this->searchArea.y) ? -this->searchArea.y : 0;
+    int right = (0 < this->searchArea.x + this->searchArea.width   - this->imageBounds.width) 
+                    ? this->searchArea.x + this->searchArea.width   - this->imageBounds.width : 0;
+    int bottom = (0 < this->searchArea.y + this->searchArea.height  - this->imageBounds.height) 
+                    ? this->searchArea.y + this->searchArea.height   - this->imageBounds.height : 0;
+    if (top > 0 || bottom > 0 || left > 0 || right > 0) {
+        copyMakeBorder(cropped, cropped, top, bottom, left, right, BORDER_REPLICATE);
+    }
+
+    return cropped;
+}
+
+Mat Track::cropForROI(Mat frame) {
+    return frame(this->bbox);
+}
 
 
