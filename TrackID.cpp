@@ -18,24 +18,26 @@ void Track::initBBox(cv::Mat frame) {
 
     this->searchArea = this->bbox;
 
-    this->bw = this->bbox.width;
-    this->bh = this->bbox.height;
+    //this->bw = this->bbox.width;
+    //this->bh = this->bbox.height;
 
     this->searchArea.x -= (optimalCols - this->bbox.width) / 2;
     this->searchArea.y -= (optimalRows - this->bbox.height) / 2;
     this->searchArea.width = optimalCols;
     this->searchArea.height = optimalRows;
-    this->w = optimalCols;
-    this->h = optimalRows;
+
+
+    Ai.create(optimalRows, optimalCols, CV_64F);
+    Bi.create(optimalRows, optimalCols, CV_64F);
+    G.create(optimalRows, optimalCols, CV_64F);
+    Gi.create(optimalRows, optimalCols, CV_64F);
+    Hi.create(optimalRows, optimalCols, CV_64F);
+    fi.create(optimalRows, optimalCols, CV_64F);
+    //this->w = optimalCols;
+    //this->h = optimalRows;
 
     //this->searchArea &= this->imageBounds;
 }
-
-Rect Track::getBBox() {return this->bbox;}
-
-Rect Track::getDisplayBBox() {return this->displayBbox;}
-
-Rect Track::getSearchArea() {return this->searchArea;}
 
 void Track::updateBBox(int dx, int dy, cv::Rect bounds) {
     
@@ -71,5 +73,21 @@ Mat Track::cropForSearch(Mat frame) {
 Mat Track::cropForROI(Mat frame) {
     return frame(this->bbox);
 }
+
+void Track::updateFilter(double lr) {
+
+    Mat tmp1, tmp2;
+
+    if (fi.size() != G.size()) {
+        cout << "RESIZED" << endl;
+        resize(fi, fi, G.size());
+    }
+    mulSpectrums(G, fi, tmp1, 0, true);
+    mulSpectrums(fi, fi, tmp2, 0, true);
+    Ai = ((1-lr) * Ai) + ((lr) * tmp1);
+    Bi = ((1-lr) * Bi) + ((lr) * tmp2);
+}
+
+
 
 

@@ -8,59 +8,14 @@ using namespace cv;
 using namespace std;
 
 
-
 void fft2d(Mat& frame) {
-    //int optimalRows = getOptimalDFTSize((frame).rows);
-    //int optimalCols = getOptimalDFTSize((frame).cols);
-    //cout << optimalRows << "::" << optimalCols << endl;
-
-    //int Rows = (frame).rows;
-    //int Cols = (frame).cols;
-
-    //Mat padded;
-    //copyMakeBorder((frame), padded, 0, optimalRows - Rows, 0, optimalCols - Cols, BORDER_CONSTANT, Scalar::all(0));
-
     Mat planes[] = {Mat_<double>(frame), Mat::zeros((frame).size(), CV_64F)};
     Mat complexI;
     merge(planes, 2, complexI);
 
     dft(complexI, complexI, DFT_COMPLEX_OUTPUT);
-
     //"return" the fourier domain image
-    //resize(complexI, frame, Size(Cols, Rows));
     frame = complexI;
-    return;
-    // the rest is just to visualize 
-   //split(complexI, planes);
-   //magnitude(planes[0], planes[1], planes[0]);
-   //Mat magI = planes[0];
-   //magI += Scalar::all(1);
-
-   //log(magI, magI);
-   //magI = magI(Rect(0, 0, magI.cols & -2, magI.rows & -2));
-
-   //int cx = magI.cols/2;
-   //int cy = magI.rows/2;
-
-   //Mat q0(magI, Rect(0, 0, cx, cy));
-   //Mat q1(magI, Rect(cx, 0, cx, cy));
-   //Mat q2(magI, Rect(0, cy, cx, cy));
-   //Mat q3(magI, Rect(cx, cy, cx, cy));
-
-   //Mat tmp;
-
-   //q0.copyTo(tmp);
-   //q3.copyTo(q0);
-   //tmp.copyTo(q3);
-
-   //q1.copyTo(tmp);
-   //q2.copyTo(q1);
-   //tmp.copyTo(q2);
-
-   //normalize(magI, magI, 0, 1, NORM_MINMAX);
-
-   //imshow("spectrum", magI);
-
 }
 
 void preProcess(cv::Mat &img, cv::Mat &window) {
@@ -166,158 +121,80 @@ void trainFilter(cv::Mat initFrame, cv::Mat& G, cv::Mat& Ai, cv::Mat& Bi,
         Bi = (1-lr) * Bi + (lr) * tmp2;
     }
 }
-
-void updateFilter(Mat &G, Mat &Ai, Mat &Bi, Mat &fi, double lr) {
-
-    Mat tmp1, tmp2;
-
-    if (fi.size() != G.size()) {
-        cout << "RESIZED" << endl;
-        resize(fi, fi, G.size());
-    }
-    mulSpectrums(G, fi, tmp1, 0, true);
-    mulSpectrums(fi, fi, tmp2, 0, true);
-    Ai = ((1-lr) * Ai) + ((lr) * tmp1);
-    Bi = ((1-lr) * Bi) + ((lr) * tmp2);
-
-}
-
-void CFT::startTracking() {
-    Mat currentFrame;//Declaring a matrix to load the frames//
-    Mat grayFrame;
-
-    namedWindow("Video Player");//Declaring the video to show the video//
-    VideoCapture cap(0);//Declaring an object to capture stream of frames from default camera//
-
-    if (!cap.isOpened()){ //This section prompt an error message if no video stream is found//
-        cout << "No video stream detected" << endl;
-        system("pause");
-        return;
-    }
-    waitKey(0);
-    cap >> currentFrame;
     
-    cvtColor(currentFrame, grayFrame, COLOR_BGR2GRAY);
+Track CFT::initTracking(Mat frame) {
+
+    Track track;
+    track.initBBox(frame);
+    
+    Mat grayFrame;
+    cvtColor(frame, grayFrame, COLOR_BGR2GRAY);
     grayFrame.convertTo(grayFrame, CV_64F);
-    Rect imageBounds(0, 0, grayFrame.cols, grayFrame.rows);
 
-    Track test;
-
-    test.initBBox(currentFrame);
-
-    Mat response = guass(grayFrame, test.getSearchArea(), this->sigma);
+    Mat response = guass(grayFrame, track.getSearchArea(), this->sigma);
     Mat window = hanningWindow((response.rows), (response.cols)); 
     preProcess(response, window);
     
-    Mat G = test.cropForSearch(response);
-    Mat fi = test.cropForROI(grayFrame);
+    track.G = track.cropForSearch(response);
+    track.fi = track.cropForROI(grayFrame);
 
-    fft2d(G);
-    Size dftSize = G.size();
-    if (fi.size() != dftSize) {
-        cout << "RESIZED" << dftSize << "::::" << fi.size() << endl;
-        resize(fi, fi, dftSize);
-    }
+    fft2d(track.G);
+    resize(track.fi, track.fi, track.G.size());
 
-    Mat Ai(dftSize, CV_64F);
-    Mat Bi(dftSize, CV_64F);
-    trainFilter(fi, G, Ai, Bi, this->numTrain, this->lr);
-    cout << "here:"<<endl;
-    //cout << "Tracking: search fi size = " << searchArea.size() << endl;
+    trainFilter(track.fi, track.G, track.Ai, track.Bi, this->numTrain, this->lr);
 
-    bool psrFlag = false;
-    Mat Hi(dftSize, CV_64F);
-    Mat Gi(dftSize, CV_64F);
-    Mat gi(dftSize, CV_64F);
-    Mat mask = Mat::ones(gi.size(), CV_8U);
+    return track;
+}
 
-    window = hanningWindow((dftSize.height), (dftSize.width));   
-    int frame = 0;
-    time_t startTime = time(NULL);
-    //cout << "here:::" << endl;
-    while (true) { 
-        frame++;
-        cap >> currentFrame;
-        if (currentFrame.empty()){ //Breaking the loop if no video frame is detected//
-            break;
-        }
+int CFT::updateTracking(cv::Mat frame, Track &track) {
 
-        cvtColor(currentFrame, grayFrame, COLOR_BGR2GRAY);
+    // change later
+    Mat window = hanningWindow((track.G.rows), (track.G.cols));   
+    Mat mask = Mat::ones(track.Gi.size(), CV_8U);
 
-        divSpectrums(Ai, Bi, Hi, 0, false);
+    
+    cvtColor(frame, frame, COLOR_BGR2GRAY);
 
-        fi = test.cropForSearch(grayFrame);
+    divSpectrums(track.Ai, track.Bi, track.Hi, 0, false);
 
-        //imshow("test", fi);
-        //waitKey(0);
-        //cout << fi.rows << "::" << fi.cols << response.rows << "::" << response.cols <<  endl;
+    track.fi = track.cropForSearch(frame);
 
-        if (fi.size() != dftSize) {
-        cout << "RESIZED" << dftSize << "::::" << fi.size() << endl;
-            resize(fi, fi, dftSize); 
-        }
-        preProcess(fi, window);
+    preProcess(track.fi, window);
         //cout << "after" << endl;
-        fft2d(fi);
+    fft2d(track.fi);
 
         //cout << "here1" << endl;
-        mulSpectrums(Hi, fi, Gi, 0, false);
-        //cout << "G: " << G.size() << ", fi: " << fi.size() << ", Hi: " << Hi.size() << ", Gi: " << Gi.size() << ", gi: " << gi.size() << endl;
+    mulSpectrums(track.Hi, track.fi, track.Gi, 0, false);
 
-        idft(Gi, gi, DFT_REAL_OUTPUT | DFT_SCALE);
+    idft(track.Gi, track.Gi, DFT_REAL_OUTPUT | DFT_SCALE);
 
-        double maxVal;
-        Point maxLoc;
-        minMaxLoc(gi, NULL, &maxVal, NULL, &maxLoc);
+    double maxVal;
+    Point maxLoc;
+    minMaxLoc(track.Gi, NULL, &maxVal, NULL, &maxLoc);
+    Rect peakWindow = Rect(maxLoc.x - 20, maxLoc.y - 20, 41, 41);
+    peakWindow &= track.getImageBounds();
+    mask(peakWindow) = 0;
+    Scalar m, sd;
+    meanStdDev(track.Gi, m, sd, mask);
+    double psr = (maxVal - m[0]) / sd[0];
+    mask(peakWindow) = 1;
+    cout << "PSR::::::" << psr << endl;
+    int dx = int(maxLoc.x - track.Gi.cols / 2);
+    int dy = int(maxLoc.y - track.Gi.rows / 2);
+    track.updateBBox(dx, dy, track.getImageBounds());
 
-        Rect peakWindow = Rect(maxLoc.x - 20, maxLoc.y - 20, 41, 41);
-        peakWindow &= imageBounds;
-        mask(peakWindow) = 0;
-        Scalar m, sd;
-        meanStdDev(gi, m, sd, mask);
-        double psr = (maxVal - m[0]) / sd[0];
-        mask(peakWindow) = 1;
-        cout << "PSR::::::" << psr << endl;
-
-        int dx = int(maxLoc.x - gi.cols / 2);
-        int dy = int(maxLoc.y - gi.rows / 2);
-
-        test.updateBBox(dx, dy, imageBounds);
-
-        if (!psrFlag) {
-            updateFilter(G, Ai, Bi, fi, this->lr);
-            if (psr > 20) psrFlag = true;
+    if (!track.psrFlag) {
+            track.updateFilter(this->lr);
+            if (psr > 20) track.psrFlag = true;
         }
         else {
             if (psr > 12) 
-                updateFilter(G, Ai, Bi, fi, this->lr);
+                track.updateFilter(this->lr);
 
             else {
                 cout << "PSR too low to update" << endl;
             }
         }
+}
 
-        rectangle(currentFrame, test.getDisplayBBox(), Scalar(255, 0, 0), 2);
-        imshow("Video Player2", currentFrame);
-        //waitKey(0);
-
-        char c = (char) waitKey(25);//Allowing 25 milliseconds frame processing time and initiating break condition//
-        if (c == 27){ //If 'Esc' is entered break the loop//
-            time_t end = time(NULL);
-            cout << frame / difftime(end, startTime) << endl;
-            break;
-        }
-    }
-
-    G.release();
-    fi.release();
-    cap.release();//Releasing the buffer memory//
-    grayFrame.release();
-    currentFrame.release();
-    gi.release();
-    Gi.release();
-    mask.release();
-    Hi.release();
-    destroyAllWindows();
-    }
 

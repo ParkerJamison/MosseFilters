@@ -12,12 +12,14 @@
 
 #include "opencv2/opencv.hpp"
 
-
+class Track;
 class CFT {
     private:
         double lr;
         int sigma;
         int numTrain;
+        cv::Mat window;
+        cv::Mat mask;
 
     public:
 
@@ -33,7 +35,12 @@ class CFT {
             numTrain = z;
         }
 
+
         void startTracking();
+        
+
+        Track initTracking(cv::Mat frame);
+        int updateTracking(cv::Mat frame, Track &track);
 };
 
 
