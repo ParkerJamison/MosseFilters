@@ -36,7 +36,6 @@ class CFT {
         }
 
 
-        void startTracking();
         
 
         Track initTracking(cv::Mat frame);
