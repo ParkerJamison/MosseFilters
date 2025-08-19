@@ -18,23 +18,24 @@ void Track::initBBox(cv::Mat frame) {
 
     this->searchArea = this->bbox;
 
-    //this->bw = this->bbox.width;
-    //this->bh = this->bbox.height;
-
     this->searchArea.x -= (optimalCols - this->bbox.width) / 2;
     this->searchArea.y -= (optimalRows - this->bbox.height) / 2;
     this->searchArea.width = optimalCols;
     this->searchArea.height = optimalRows;
 
+    cout << "1" << endl;
+    for(int i = 0; i < 2; i++) {
+        A.push_back(Mat(optimalRows, optimalCols, CV_64F));
+        B.push_back(Mat(optimalRows, optimalCols, CV_64F));
+    }
+    cout << "2" << endl;
 
-    Ai.create(optimalRows, optimalCols, CV_64F);
-    Bi.create(optimalRows, optimalCols, CV_64F);
+
     G.create(optimalRows, optimalCols, CV_64F);
     Gi.create(optimalRows, optimalCols, CV_64F);
     Hi.create(optimalRows, optimalCols, CV_64F);
     fi.create(optimalRows, optimalCols, CV_64F);
-    //this->w = optimalCols;
-    //this->h = optimalRows;
+
 
     //this->searchArea &= this->imageBounds;
 }
@@ -59,10 +60,10 @@ Mat Track::cropForSearch(Mat frame) {
 
     int left = (0 < -this->searchArea.x) ? -this->searchArea.x : 0;
     int top = (0 < -this->searchArea.y) ? -this->searchArea.y : 0;
-    int right = (0 < this->searchArea.x + this->searchArea.width   - this->imageBounds.width) 
-                    ? this->searchArea.x + this->searchArea.width   - this->imageBounds.width : 0;
-    int bottom = (0 < this->searchArea.y + this->searchArea.height  - this->imageBounds.height) 
-                    ? this->searchArea.y + this->searchArea.height   - this->imageBounds.height : 0;
+    int right = (0 < this->searchArea.x + this->searchArea.width - this->imageBounds.width) 
+                    ? this->searchArea.x + this->searchArea.width - this->imageBounds.width : 0;
+    int bottom = (0 < this->searchArea.y + this->searchArea.height - this->imageBounds.height) 
+                    ? this->searchArea.y + this->searchArea.height - this->imageBounds.height : 0;
     if (top > 0 || bottom > 0 || left > 0 || right > 0) {
         copyMakeBorder(cropped, cropped, top, bottom, left, right, BORDER_REPLICATE);
     }
@@ -74,7 +75,7 @@ Mat Track::cropForROI(Mat frame) {
     return frame(this->bbox);
 }
 
-void Track::updateFilter(double lr) {
+void Track::updateFilter(double lr, bool lt) {
 
     Mat tmp1, tmp2;
 
@@ -84,8 +85,15 @@ void Track::updateFilter(double lr) {
     }
     mulSpectrums(G, fi, tmp1, 0, true);
     mulSpectrums(fi, fi, tmp2, 0, true);
-    Ai = ((1-lr) * Ai) + ((lr) * tmp1);
-    Bi = ((1-lr) * Bi) + ((lr) * tmp2);
+
+    if (!lt) {
+        A[0] = ((1-lr) * A[0]) + ((lr) * tmp1);
+        B[0] = ((1-lr) * B[0]) + ((lr) * tmp2);
+    }
+    else {
+        A[1] = ((1-lr) * A[1]) + ((lr) * tmp1);
+        B[1] = ((1-lr) * B[1]) + ((lr) * tmp2);
+    }
 }
 
 

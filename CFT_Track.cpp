@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cmath>
 #include <random>
+#include <vector>
 
 using namespace cv;
 using namespace std;
@@ -60,10 +61,6 @@ Mat guass(cv::Mat initFrame, cv::Rect2d rect, int sigma) {
             response.at<double>(i, j) = ex;
         }
     }
-
-    double imMax;
-    double imMin;
-    minMaxLoc(response, &imMin, &imMax, NULL, NULL);
     normalize(response, response, 0, 1, NORM_MINMAX);
 
     return response;
@@ -88,7 +85,7 @@ Mat randomWarp(Mat img) {
 }
 
 
-void trainFilter(cv::Mat initFrame, cv::Mat& G, cv::Mat& Ai, cv::Mat& Bi,
+void trainFilter(cv::Mat initFrame, cv::Mat& G, vector<Mat>& A, vector<Mat>& B,
                     int numTrain, double lr) {
 
     int height = (G).rows;
@@ -97,19 +94,19 @@ void trainFilter(cv::Mat initFrame, cv::Mat& G, cv::Mat& Ai, cv::Mat& Bi,
     Mat window = hanningWindow(height, width);
 
     Mat fi = initFrame;
-    //resize(initFrame, fi, Size(width, height));
 
     preProcess(fi, window);
     fft2d(fi);
     
-    mulSpectrums(G, fi, Ai, 0, true);
-    mulSpectrums(fi, fi, Bi, 0, true);
+    for(int i = 0; i < 2; i++) {
+        mulSpectrums(G, fi, A[i], 0, true);
+        mulSpectrums(fi, fi, B[i], 0, true);
+    }
 
-    Mat warped(Size(width, height), fi.type()), tmp1(Ai.size(), Ai.type()), tmp2(Bi.size(), Bi.type());
+    Mat warped(Size(width, height), fi.type()), tmp1(A[0].size(), A[0].type()), tmp2(B[0].size(), B[0].type());
     for (int i = 0; i < numTrain; i++) {
         warped = randomWarp(initFrame);
 
-        //resize(warped, warped, Size(width, height));
         preProcess(warped, window);
         fi = warped;
         fft2d(fi);
@@ -117,8 +114,10 @@ void trainFilter(cv::Mat initFrame, cv::Mat& G, cv::Mat& Ai, cv::Mat& Bi,
         mulSpectrums(G, fi, tmp1, 0, true);
         mulSpectrums(fi, fi, tmp2, 0, true);
 
-        Ai = (1-lr) * Ai + (lr) * tmp1;
-        Bi = (1-lr) * Bi + (lr) * tmp2;
+        for(int i = 0; i < 2; i++) {
+            A[i] = (1-lr) * A[i] + (lr) * tmp1;
+            B[i] = (1-lr) * B[i] + (lr) * tmp2;
+        }
     }
 }
     
@@ -141,60 +140,89 @@ Track CFT::initTracking(Mat frame) {
     fft2d(track.G);
     resize(track.fi, track.fi, track.G.size());
 
-    trainFilter(track.fi, track.G, track.Ai, track.Bi, this->numTrain, this->lr);
+    trainFilter(track.fi, track.G, track.A, track.B, this->numTrain, this->lr);
 
     return track;
 }
 
 int CFT::updateTracking(cv::Mat frame, Track &track) {
+    double maxVal;
+    Point maxLoc;
+
+    double psr = 0;
+    int dx = 0;
+    int dy = 0;
 
     // change later
     Mat window = hanningWindow((track.G.rows), (track.G.cols));   
     Mat mask = Mat::ones(track.Gi.size(), CV_8U);
 
-    
     cvtColor(frame, frame, COLOR_BGR2GRAY);
 
-    divSpectrums(track.Ai, track.Bi, track.Hi, 0, false);
-
     track.fi = track.cropForSearch(frame);
-
     preProcess(track.fi, window);
-        //cout << "after" << endl;
     fft2d(track.fi);
+    
 
-        //cout << "here1" << endl;
-    mulSpectrums(track.Hi, track.fi, track.Gi, 0, false);
+    for (int i = 0; i < 2; i++) {
 
-    idft(track.Gi, track.Gi, DFT_REAL_OUTPUT | DFT_SCALE);
+        divSpectrums(track.A[i], track.B[i], track.Hi, 0, false);
 
-    double maxVal;
-    Point maxLoc;
-    minMaxLoc(track.Gi, NULL, &maxVal, NULL, &maxLoc);
-    Rect peakWindow = Rect(maxLoc.x - 20, maxLoc.y - 20, 41, 41);
-    peakWindow &= track.getImageBounds();
-    mask(peakWindow) = 0;
-    Scalar m, sd;
-    meanStdDev(track.Gi, m, sd, mask);
-    double psr = (maxVal - m[0]) / sd[0];
-    mask(peakWindow) = 1;
-    cout << "PSR::::::" << psr << endl;
-    int dx = int(maxLoc.x - track.Gi.cols / 2);
-    int dy = int(maxLoc.y - track.Gi.rows / 2);
+        mulSpectrums(track.Hi, track.fi, track.Gi, 0, false);
+
+        idft(track.Gi, track.Gi, DFT_REAL_OUTPUT | DFT_SCALE);
+
+        minMaxLoc(track.Gi, NULL, &maxVal, NULL, &maxLoc);
+
+        Rect peakWindow = Rect(maxLoc.x - 20, maxLoc.y - 20, 41, 41);
+        peakWindow &= track.getSearchArea();
+
+        mask(peakWindow) = 0;
+        Scalar m, sd;
+        meanStdDev(track.Gi, m, sd, mask);
+        mask(peakWindow) = 1;
+
+        double tmpPsr = (maxVal - m[0]) / sd[0];
+        cout << "PSR::::::" << tmpPsr << endl;
+        if (tmpPsr > psr) {
+            psr = tmpPsr;
+            dx = int(maxLoc.x - track.Gi.cols / 2);
+            dy = int(maxLoc.y - track.Gi.rows / 2);
+        }
+    }
+
     track.updateBBox(dx, dy, track.getImageBounds());
 
     if (!track.psrFlag) {
-            track.updateFilter(this->lr);
+            track.updateFilter(this->lr, false);
+            track.updateFilter(this->lr, true);
             if (psr > 20) track.psrFlag = true;
         }
-        else {
-            if (psr > 12) 
-                track.updateFilter(this->lr);
-
-            else {
-                cout << "PSR too low to update" << endl;
-            }
+    else {
+        if ((psr > 6) && (psr < 20)) 
+            track.updateFilter(this->lr, false);
+        else if (psr >= 20) {
+            track.updateFilter(this->lr, true);
         }
+        else {
+            cout << "PSR too low to update" << endl;
+        }
+
+    }
+    return 0;
 }
+
+//Track CFT::tttf(Mat frame) {
+//    // open a select roi window
+//    // continue to add real time frames to a buffer in seperate thread
+//    //once roi is selected, run the tracker on the buffer until it is sufficiently caught up
+//    // free buffer. 
+//
+//    // object verification?
+//    // circular buffer? time limit of 10sec?
+//    // transistion between tracking buffer and real time?
+//    
+//}
+
 
 

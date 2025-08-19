@@ -40,6 +40,7 @@ class CFT {
 
         Track initTracking(cv::Mat frame);
         int updateTracking(cv::Mat frame, Track &track);
+        //Track tttf(cv::Mat frame);
 };
 
 

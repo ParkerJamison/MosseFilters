@@ -3,6 +3,7 @@
 #define TRACK_H
 
 
+#include <vector> 
 #include "CFT_Track.hpp"
 #include "opencv2/opencv.hpp"
 
@@ -27,6 +28,16 @@ class Track : public CFT {
             searchArea = cv::Rect(0, 0, 0, 0);
         };
 
+        ~Track() {
+
+            Ai.release();
+            Bi.release();
+            G.release();
+            Gi.release();
+            fi.release();
+            Hi.release();
+        }
+
         void initBBox(cv::Mat frame);
         void updateBBox(int dx, int dy, cv::Rect bounds);
 
@@ -41,9 +52,14 @@ class Track : public CFT {
         cv::Mat cropForSearch(cv::Mat frame);
         cv::Mat cropForROI(cv::Mat frame);
 
-        void updateFilter(double lr);
+        void updateFilter(double lr, bool lt);
 
-        cv::Mat Ai, Bi, G, Gi, fi, Hi;
+        cv::Mat Ai, Bi, Hi;
+        cv::Mat G, Gi, fi;
+
+        std::vector<cv::Mat> A;
+        std::vector<cv::Mat> B;
+
         bool psrFlag = false;
 
 };

@@ -10,8 +10,8 @@ using namespace std;
 int main() {
     
     //CFT test;
-    //test.startTracking();
 
+    //test.startTracking();
     Track track;
     CFT test;
 
@@ -26,7 +26,9 @@ int main() {
     }
     waitKey(0);
     cap >> currentFrame;
+    
     track = test.initTracking(currentFrame);
+
     while (true) { 
         cap >> currentFrame;
         if (currentFrame.empty()){ //Breaking the loop if no video frame is detected//
@@ -35,6 +37,7 @@ int main() {
         test.updateTracking(currentFrame, track);
 
         rectangle(currentFrame, track.getDisplayBBox(), Scalar(255, 0, 0), 2);
+
         imshow("Video Player2", currentFrame);
         //waitKey(0);
 
