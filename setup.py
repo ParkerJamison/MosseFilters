@@ -21,12 +21,12 @@ def pkgconfig(package):
     except subprocess.CalledProcessError:
         raise RuntimeError(f"pkg-config failed for {package}. Ensure OpenCV is installed and PKG_CONFIG_PATH is set.")
 
-opencv_flags = pkgconfig('opencv4')  # Use 'opencv' if your version uses that .pc file (but usually opencv4 for 4.x)
+opencv_flags = pkgconfig('opencv4')
 
 ext_modules = [
     Extension(
-        'cft_tracker',  # Your module name from the error
-        sources=['CFT_Track.cpp', 'bindings.cpp', 'TrackID.cpp'],  # Add all your .cpp files, e.g., ['bindings.cpp', 'my_class1.cpp', 'my_class2.cpp']
+        'cft_tracker',
+        sources=['CFT_Track.cpp', 'bindings.cpp', 'TrackID.cpp'],
         include_dirs=[pybind11.get_include()] + opencv_flags.get('include_dirs', []),
         library_dirs=opencv_flags.get('library_dirs', []),
         libraries=opencv_flags.get('libraries', []),

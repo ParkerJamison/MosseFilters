@@ -1,6 +1,4 @@
 #include <opencv2/opencv.hpp>
-#include <iostream>
-#include <unistd.h>
 #include "CFT_Track.hpp"
 #include "TrackID.hpp"
 
@@ -8,45 +6,54 @@ using namespace cv;
 using namespace std;
 
 int main() {
-    
-    //CFT test;
+    // Create Track Objects
+    //Track track1, track2;
+    vector<Track> tracks;
 
-    //test.startTracking();
-    Track track;
-    CFT test;
+    for (int i = 0; i < 10; i++) {
+        Track track;
+        tracks.push_back(track);
+    }
+
+    // Create the tracekr object
+    CFT tracker;
 
     Mat currentFrame;
-    namedWindow("Video Player");//Declaring the video to show the video//
-    VideoCapture cap(0);//Declaring an object to capture stream of frames from default camera//
+    namedWindow("Video Player");
+    VideoCapture cap(0);
 
-    if (!cap.isOpened()){ //This section prompt an error message if no video stream is found//
+    if (!cap.isOpened()) {
         cout << "No video stream detected" << endl;
-        system("pause");
         return 0;
     }
-    waitKey(0);
+
+    waitKey(50); // Wait for the camera to be ready
+
     cap >> currentFrame;
-    
-    track = test.initTracking(currentFrame);
+
+    // init all the tracks. 
+    for (Track &track : tracks) {
+        track = tracker.initTracking(currentFrame);
+    }
 
     while (true) { 
         cap >> currentFrame;
-        if (currentFrame.empty()){ //Breaking the loop if no video frame is detected//
+        if (currentFrame.empty()){ 
             break;
         }
-        test.updateTracking(currentFrame, track);
 
-        rectangle(currentFrame, track.getDisplayBBox(), Scalar(255, 0, 0), 2);
+        // Update each track. 
+        for (Track &track : tracks) {
+            tracker.updateTracking(currentFrame, track);
+            rectangle(currentFrame, track.getDisplayBBox(), Scalar(255, 0, 0), 2);
+        }
 
         imshow("Video Player2", currentFrame);
-        //waitKey(0);
 
-        char c = (char) waitKey(25);//Allowing 25 milliseconds frame processing time and initiating break condition//
-        if (c == 27){ //If 'Esc' is entered break the loop//
+        char c = (char) waitKey(25);
+        if (c == 27){ //If 'Esc' is entered break the loop
             break;
         }
     }
-    
     return 0;
-    
 }

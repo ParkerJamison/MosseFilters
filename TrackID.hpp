@@ -29,9 +29,6 @@ class Track : public CFT {
         };
 
         ~Track() {
-
-            Ai.release();
-            Bi.release();
             G.release();
             Gi.release();
             fi.release();
@@ -54,8 +51,7 @@ class Track : public CFT {
 
         void updateFilter(double lr, bool lt);
 
-        cv::Mat Ai, Bi, Hi;
-        cv::Mat G, Gi, fi;
+        cv::Mat G, Gi, fi, Hi;
 
         std::vector<cv::Mat> A;
         std::vector<cv::Mat> B;

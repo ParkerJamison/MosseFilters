@@ -5,11 +5,11 @@ using namespace std;
 
 void Track::initBBox(cv::Mat frame) {
 
-    bool fromCenter = false;
     int rows = frame.rows;
     int cols = frame.cols;
     this->imageBounds = Rect(0, 0, cols, rows);
 
+    bool fromCenter = false;
     this->bbox = selectROI(frame);
     this->displayBbox = this->bbox;
 
@@ -23,21 +23,16 @@ void Track::initBBox(cv::Mat frame) {
     this->searchArea.width = optimalCols;
     this->searchArea.height = optimalRows;
 
-    cout << "1" << endl;
     for(int i = 0; i < 2; i++) {
         A.push_back(Mat(optimalRows, optimalCols, CV_64F));
         B.push_back(Mat(optimalRows, optimalCols, CV_64F));
     }
-    cout << "2" << endl;
-
 
     G.create(optimalRows, optimalCols, CV_64F);
     Gi.create(optimalRows, optimalCols, CV_64F);
     Hi.create(optimalRows, optimalCols, CV_64F);
     fi.create(optimalRows, optimalCols, CV_64F);
 
-
-    //this->searchArea &= this->imageBounds;
 }
 
 void Track::updateBBox(int dx, int dy, cv::Rect bounds) {
@@ -67,7 +62,6 @@ Mat Track::cropForSearch(Mat frame) {
     if (top > 0 || bottom > 0 || left > 0 || right > 0) {
         copyMakeBorder(cropped, cropped, top, bottom, left, right, BORDER_REPLICATE);
     }
-
     return cropped;
 }
 
@@ -87,8 +81,8 @@ void Track::updateFilter(double lr, bool lt) {
     mulSpectrums(fi, fi, tmp2, 0, true);
 
     if (!lt) {
-        A[0] = ((1-lr) * A[0]) + ((lr) * tmp1);
-        B[0] = ((1-lr) * B[0]) + ((lr) * tmp2);
+        A[0] = ((1-lr) * A[0]) + ((0.15) * tmp1);
+        B[0] = ((1-lr) * B[0]) + ((0.15) * tmp2);
     }
     else {
         A[1] = ((1-lr) * A[1]) + ((lr) * tmp1);

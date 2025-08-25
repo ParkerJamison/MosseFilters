@@ -23,6 +23,7 @@ py::tuple rect_to_tuple(const cv::Rect &rect) {
     return py::make_tuple(rect.x, rect.y, rect.width, rect.height);
 }
 
+
 PYBIND11_MODULE(cft_tracker, m) {
     m.doc() = "CFT and Track classes exposed via pybind11";
 
@@ -52,8 +53,8 @@ PYBIND11_MODULE(cft_tracker, m) {
         .def("cropForROI", &Track::cropForROI)
         .def("updateFilter", &Track::updateFilter)
         .def_readwrite("psrFlag", &Track::psrFlag)
-        .def_readwrite("Ai", &Track::Ai)
-        .def_readwrite("Bi", &Track::Bi)
+        .def_readwrite("A", &Track::A)
+        .def_readwrite("B", &Track::B)
         .def_readwrite("G", &Track::G)
         .def_readwrite("Gi", &Track::Gi)
         .def_readwrite("fi", &Track::fi)

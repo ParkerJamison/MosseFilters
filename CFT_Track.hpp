@@ -2,14 +2,6 @@
 #ifndef CFT_H
 #define CFT_H
 
-#include <iostream>
-#include <vector>
-#include <complex>
-#include <thread>
-#include <future>
-#include <cmath>
-#include "time.h"
-
 #include "opencv2/opencv.hpp"
 
 class Track;
@@ -33,14 +25,10 @@ class CFT {
             lr = x;
             sigma = y;
             numTrain = z;
-        }
-
-
-        
+        };
 
         Track initTracking(cv::Mat frame);
         int updateTracking(cv::Mat frame, Track &track);
-        //Track tttf(cv::Mat frame);
 };
 
 

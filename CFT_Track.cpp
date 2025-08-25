@@ -1,7 +1,5 @@
 #include "CFT_Track.hpp"
 #include "TrackID.hpp"
-#include <iostream>
-#include <cmath>
 #include <random>
 #include <vector>
 
@@ -10,22 +8,27 @@ using namespace std;
 
 
 void fft2d(Mat& frame) {
+    /*
+    computes the 2d Fourier Transform of Frame 
+    */
     Mat planes[] = {Mat_<double>(frame), Mat::zeros((frame).size(), CV_64F)};
-    Mat complexI;
-    merge(planes, 2, complexI);
+    merge(planes, 2, frame);
 
-    dft(complexI, complexI, DFT_COMPLEX_OUTPUT);
-    //"return" the fourier domain image
-    frame = complexI;
+    dft(frame, frame, DFT_COMPLEX_OUTPUT);
+}
+
+Mat hanningWindow(int height, int width) {
+    /* 
+    Creates a hanning window of size width x height
+    */
+    Mat win;
+    createHanningWindow(win, Size(width, height), CV_64F);
+    return win;
 }
 
 void preProcess(cv::Mat &img, cv::Mat &window) {
-
-    Mat hanningWindow(int height, int width);
-
-    int width = (img).cols;
-    int height = (img).rows;
-
+    /*
+    */
     img.convertTo(img, CV_64F, 1.0/255);
     (img) += 1e-5;
     
@@ -37,12 +40,6 @@ void preProcess(cv::Mat &img, cv::Mat &window) {
 
     mulSpectrums(img, window, img, 0, false);
     return;
-}
-
-Mat hanningWindow(int height, int width) {
-    Mat win;
-    createHanningWindow(win, Size(width, height), CV_64F);
-    return win;
 }
 
 Mat guass(cv::Mat initFrame, cv::Rect2d rect, int sigma) {
@@ -67,16 +64,19 @@ Mat guass(cv::Mat initFrame, cv::Rect2d rect, int sigma) {
 }
 
 Mat randomWarp(Mat img) {
+    /* 
+    Adds a random rotation and translation to an img
+    */
     random_device rd;
     mt19937 gen(rd());
-    uniform_real_distribution<> angle_dis(-11.25, 11.25);
+    uniform_real_distribution<> angle_dis(-14.25, 14.25);
     double angle = angle_dis(gen);
     Point2f center(img.cols/2.0F, img.rows/2.0F);
     Mat rotMat = getRotationMatrix2D(center, angle, 1.0);
     Mat warped;
     warpAffine(img, warped, rotMat, img.size(), INTER_LINEAR, BORDER_REFLECT);
 
-    uniform_real_distribution<> trans_dis(-8.0, 8.0);
+    uniform_real_distribution<> trans_dis(-12.0, 12.0);
     float tx = trans_dis(gen), ty = trans_dis(gen);
     Mat warpMat = (Mat_<double>(2,3) << 1, 0, tx, 0, 1, ty);
     warpAffine(warped, warped, warpMat, img.size(), INTER_LINEAR, BORDER_REFLECT);
@@ -87,6 +87,10 @@ Mat randomWarp(Mat img) {
 
 void trainFilter(cv::Mat initFrame, cv::Mat& G, vector<Mat>& A, vector<Mat>& B,
                     int numTrain, double lr) {
+    /* 
+    trains both the short term and the long term MOSSE filters from the input frame along with 
+    the bounding box information for reach corresponding track. 
+    */
 
     int height = (G).rows;
     int width = (G).cols;
@@ -154,6 +158,7 @@ int CFT::updateTracking(cv::Mat frame, Track &track) {
     int dy = 0;
 
     // change later
+    cout << (track.G.rows) << "::" << (track.G.cols) << endl;
     Mat window = hanningWindow((track.G.rows), (track.G.cols));   
     Mat mask = Mat::ones(track.Gi.size(), CV_8U);
 
@@ -174,7 +179,7 @@ int CFT::updateTracking(cv::Mat frame, Track &track) {
 
         minMaxLoc(track.Gi, NULL, &maxVal, NULL, &maxLoc);
 
-        Rect peakWindow = Rect(maxLoc.x - 20, maxLoc.y - 20, 41, 41);
+        Rect peakWindow = Rect(maxLoc.x - 10, maxLoc.y - 10, 11, 11);
         peakWindow &= track.getSearchArea();
 
         mask(peakWindow) = 0;
@@ -196,7 +201,7 @@ int CFT::updateTracking(cv::Mat frame, Track &track) {
     if (!track.psrFlag) {
             track.updateFilter(this->lr, false);
             track.updateFilter(this->lr, true);
-            if (psr > 20) track.psrFlag = true;
+            if (psr > 13) track.psrFlag = true;
         }
     else {
         if ((psr > 6) && (psr < 20)) 
