@@ -136,7 +136,7 @@ Track CFT::initTracking(Mat frame) {
 
     Mat response = guass(grayFrame, track.getSearchArea(), this->sigma);
     Mat window = hanningWindow((response.rows), (response.cols)); 
-    preProcess(response, window);
+    //preProcess(response, window);
     
     track.G = track.cropForSearch(response);
     track.fi = track.cropForROI(grayFrame);
